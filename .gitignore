@@ -1,0 +1,8 @@
+venv
+OTB2015
+OTB2015.zip
+notebooks
+checkpoints
+results
+__pycache__
+.DS_Store
