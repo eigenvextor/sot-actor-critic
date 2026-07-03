@@ -9,32 +9,7 @@ import torch.nn as nn
 import utils
 from tqdm import tqdm
 
-# class ReplayBuffer:
-#     def __init__(self, capacity=5000):
-#         self.buffer = deque(maxlen=capacity)
-
-#     def push(self, state_feat, action, reward, next_state_feat):
-#         # detach to cut the computational graph, but leave it on MPS
-#         self.buffer.append((
-#             state_feat.detach(), 
-#             action.detach(), 
-#             reward.detach(), 
-#             next_state_feat.detach()
-#         ))
-
-#     def sample(self, batch_size):
-#         batch = random.sample(self.buffer, batch_size)
-#         state, action, reward, next_state = zip(*batch)
-        
-#         return (torch.cat(state), 
-#                 torch.cat(action), 
-#                 torch.cat(reward), 
-#                 torch.cat(next_state))
-
-#     def __len__(self):
-#         return len(self.buffer)
-
-class FastReplayBuffer:
+class ReplayBuffer:
     def __init__(self, capacity=10000, device='cpu'):
         self.capacity = capacity
         self.device = device
@@ -72,7 +47,7 @@ def supervised_iteration(model, initial_frame, initial_gt, mse_loss, device):
     actor_params = list(model.actor.parameters())
     init_optimizer = optim.Adam(actor_params, lr=1e-4)
     
-    sampled_bboxes = utils.generate_strict_samples(initial_gt, num_samples=32)
+    sampled_bboxes = utils.generate_actor_samples(initial_gt, num_samples=32)
     
     state_tensors = []
     target_actions = []
@@ -124,7 +99,7 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     
     mse_loss = nn.MSELoss()
 
-    replay_buffer = FastReplayBuffer(capacity=10000, device=device)
+    replay_buffer = ReplayBuffer(capacity=10000, device=device)
     
     epsilon = 0.7
     current_iteration = 0
@@ -136,10 +111,10 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     log_writer = csv.writer(log_file)
     log_writer.writerow(['iteration', 'actor_loss', 'critic_loss', 'epsilon'])
 
-    print("Starting Offline DDPG Training")
+    print("starting offline DDPG training")
 
     # tqdm progress bar
-    pbar = tqdm(total=total_iterations, desc="Training ACT Tracker", unit="iter")
+    pbar = tqdm(total=total_iterations, desc="training ACT tracker", unit="iter")
     
     while current_iteration < total_iterations:
         # go across all videos one by one and select random video sequence
@@ -290,4 +265,4 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     # cleanup after training finishes
     pbar.close()
     log_file.close()
-    print("Offline Training Complete")
+    print("offline training complete")

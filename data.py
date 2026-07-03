@@ -9,9 +9,6 @@ class OTBSequenceDataset(Dataset):
         self.sequence_dirs = sequence_dirs
 
     def get_groundtruth(self, filepath):
-        """
-        clean the ground truth data
-        """
         with open(filepath, 'r') as f:
             lines = f.readlines()
         
@@ -65,9 +62,6 @@ class OTBSequenceDataset(Dataset):
         return frames, ground_truths
 
 def get_otb_dataloaders(otb_root_dir, split_ratio=0.99):
-    """
-    scans the OTB root directory, splits the videos, and returns DataLoaders
-    """
     # find all sequence directories
     all_seqs = []
     exclude_list = ['Skating2', 'Panda', 'Jogging', 'Human4']
@@ -86,17 +80,14 @@ def get_otb_dataloaders(otb_root_dir, split_ratio=0.99):
     train_seqs = all_seqs[:split_idx]
     test_seqs = all_seqs[split_idx:]
     
-    print(f"Total Sequences: {len(all_seqs)}")
-    print(f"Training on: {len(train_seqs)} sequences")
-    print(f"Testing on: {len(test_seqs)} sequences")
+    print(f"total sequences: {len(all_seqs)}")
+    print(f"training on: {len(train_seqs)} sequences")
+    print(f"testing on: {len(test_seqs)} sequences")
     
     # create datasets
     train_dataset = OTBSequenceDataset(train_seqs)
     test_dataset = OTBSequenceDataset(test_seqs)
     
-    # Create DataLoaders
-    # Note: A custom collate_fn is usually needed if batch_size > 1 because 
-    # images might have different native resolutions across different OTB videos.
     train_loader = DataLoader(train_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=False)
     

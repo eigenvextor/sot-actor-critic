@@ -110,7 +110,7 @@ def apply_action_test(bbox, action_tensor, first_box):
     
     return [new_x, new_y, new_w, new_h]
 
-def get_expert_action(current_bbox, gt_bbox, device):
+def get_expert_action(current_bbox, gt_bbox, device, clipped=False):
     x_c, y_c, w_c, h_c = current_bbox
     x_gt, y_gt, w_gt, h_gt = gt_bbox
     
@@ -120,17 +120,18 @@ def get_expert_action(current_bbox, gt_bbox, device):
     dw = (w_gt - w_c) / w_c
     dh = (h_gt - h_c) / h_c
 
-    # # ground truth action shouldn't be clipped. its ground truth, duh
-    # dx = max(-1, min(1, dx))
-    # dy = max(-1, min(1, dy))
-    # dw = max(-0.05, min(0.05, dw))
-    # dh = max(-0.05, min(0.05, dh))
+    # ground truth action shouldn't be clipped. its ground truth, duh
+    if clipped:
+        dx = max(-1, min(1, dx))
+        dy = max(-1, min(1, dy))
+        dw = max(-0.05, min(0.05, dw))
+        dh = max(-0.05, min(0.05, dh))
 
     action = torch.tensor([[dx, dy, dw, dh]], dtype=torch.float32, device=device)
     
     return action
 
-def generate_strict_samples(gt_bbox, num_samples=64, iou_threshold=0.7):
+def generate_actor_samples(gt_bbox, num_samples=64, iou_threshold=0.7):
     samples = []
     x, y, w, h = gt_bbox
     
@@ -153,6 +154,44 @@ def generate_strict_samples(gt_bbox, num_samples=64, iou_threshold=0.7):
             samples.append(noisy_bbox)
             
     return samples
+
+def generate_critic_samples(gt_bbox, num_pos_samples=50, num_neg_samples=100, iou_threshold=0.7):
+    pos_samples, neg_samples = [], []
+    x, y, w, h = gt_bbox
+
+    pos_x_std, neg_x_std = 0.3, 0.3
+    pos_y_std, neg_y_std = 0.3, 0.3
+    pos_scale_std, neg_scale_std = 0.5, 0.5
+
+    while len(pos_samples) < num_pos_samples:
+        # generate samples
+        dx = np.random.normal(0, pos_x_std)
+        dy = np.random.normal(0, pos_y_std)
+        dw = np.random.normal(0, pos_scale_std)
+        dh = np.random.normal(0, pos_scale_std)
+        
+        # apply the translations directly, and the scale as a relative multiplier
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        
+        # enforce the strict IoU threshold from the paper
+        if calculate_iou(noisy_bbox, gt_bbox) > iou_threshold:
+            pos_samples.append(noisy_bbox)
+
+    while len(neg_samples) < num_neg_samples:
+        # generate samples
+        dx = np.random.normal(0, neg_x_std)
+        dy = np.random.normal(0, neg_y_std)
+        dw = np.random.normal(0, neg_scale_std)
+        dh = np.random.normal(0, neg_scale_std)
+        
+        # apply the translations directly, and the scale as a relative multiplier
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        
+        # enforce the strict IoU threshold from the paper
+        if calculate_iou(noisy_bbox, gt_bbox) < 1 - iou_threshold:
+            neg_samples.append(noisy_bbox)
+        
+    return pos_samples, neg_samples
 
 def calculate_iou(box_a, box_b):
     """

@@ -4,5 +4,6 @@ OTB2015.zip
 notebooks
 checkpoints
 results
+metrics
 __pycache__
 .DS_Store

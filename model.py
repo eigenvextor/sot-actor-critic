@@ -72,6 +72,6 @@ class ActorCriticTracker(nn.Module):
 
     def get_confidence_value_online(self, state_features):
         f_out = self.c_fc1(state_features)
-        weights = self.c_fc2.weight[:, :512]
-        bias = self.c_fc2.bias
+        weights = self.c_fc2[0].weight[:, :512]
+        bias = self.c_fc2[0].bias
         return F.linear(f_out, weights, bias)
