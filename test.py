@@ -64,8 +64,7 @@ if __name__ == "__main__":
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             frames.append(img)
 
-        # only pass the first frame ground truth
-        online_tracking(model, frames, ground_truths[0], device=device)
+        online_tracking(model, frames, ground_truths, device=device)
 
     else:
         print(f"video seq {video_seq} doesnt exist!")
