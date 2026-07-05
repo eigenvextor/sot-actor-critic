@@ -21,13 +21,13 @@ class ActorCriticTracker(nn.Module):
             for param in self.critic_feature_extractor.parameters():
                 param.requires_grad = False
                 
-            # # unfreeze only the last layer (layer3) for both actor critic
-            # for child in list(self.actor_feature_extractor.children())[-1:]:
-            #     for param in child.parameters():
-            #         param.requires_grad = True
-            # for child in list(self.critic_feature_extractor.children())[-1:]:
-            #     for param in child.parameters():
-            #         param.requires_grad = True
+            # unfreeze only the last layer (layer3) for both actor critic
+            for child in list(self.actor_feature_extractor.children())[-1:]:
+                for param in child.parameters():
+                    param.requires_grad = True
+            for child in list(self.critic_feature_extractor.children())[-1:]:
+                for param in child.parameters():
+                    param.requires_grad = True
         
         # FIXED while loading data: input patch of 107x107
         self.feature_dim = 256 * 7 * 7

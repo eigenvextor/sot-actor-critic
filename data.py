@@ -61,19 +61,27 @@ class OTBSequenceDataset(Dataset):
             
         return frames, ground_truths
 
-def get_otb_dataloaders(otb_root_dir, split_ratio=0.99):
+def save_txt(seqs, label):
+    os.makedirs("video_seqs", exist_ok=True)
+    with open(f'video_seqs/{label}.txt', 'w') as f:
+        for i, video in enumerate(seqs):
+            f.write(f"{i}, {video}\n")
+
+def get_otb_dataloaders(otb_root_dir, split_ratio=0.9):
     # find all sequence directories
     all_seqs = []
-    exclude_list = ['Skating2', 'Panda', 'Jogging', 'Human4']
     for d in os.listdir(otb_root_dir):
         if d.startswith('.'):
             continue
         dir_path = os.path.join(otb_root_dir, d)
-        if os.path.isdir(dir_path) and dir_path.split('/')[-1] not in exclude_list:
+        if os.path.isdir(dir_path):
             if os.path.exists(os.path.join(dir_path, 'groundtruth_rect.txt')):
                 all_seqs.append(dir_path)
+            else:
+                print(f"groundtruth_rect.txt doesnt exist for this folder: {d}")
 
     # shuffle for a random split
+    random.seed(42)
     random.shuffle(all_seqs)
     
     split_idx = int(len(all_seqs) * split_ratio)
@@ -91,4 +99,7 @@ def get_otb_dataloaders(otb_root_dir, split_ratio=0.99):
     train_loader = DataLoader(train_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=False)
     
+    save_txt(train_seqs, "train")
+    save_txt(test_seqs, "test")
+
     return train_loader, test_loader

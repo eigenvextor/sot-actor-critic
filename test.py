@@ -24,21 +24,6 @@ if __name__ == "__main__":
     print(f"loading ACT model: {CHECKPOINT}")
     model = load_checkpoint(CHECKPOINT, device)
 
-    # # done only once to save video_seq.txt file
-    # all_seqs = []
-    # exclude_list = ['Skating2', 'Panda', 'Jogging', 'Human4']
-    # for d in sorted(os.listdir(OTB_ROOT_DIR)):
-    #     if d.startswith('.'):
-    #         continue
-    #     dir_path = os.path.join(OTB_ROOT_DIR, d)
-    #     if os.path.isdir(dir_path) and dir_path.split('/')[-1] not in exclude_list:
-    #         if os.path.exists(os.path.join(dir_path, 'groundtruth_rect.txt')):
-    #             all_seqs.append(d)
-
-    # with open('videos_seq.txt', 'w') as f:
-    #     for i, video in enumerate(all_seqs):
-    #         f.write(f"{i}, {video}\n")
-
     video_seq = input("give input video seq name: ")
 
     video_seq_path = os.path.join(OTB_ROOT_DIR, video_seq)

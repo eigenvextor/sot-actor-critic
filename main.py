@@ -28,7 +28,7 @@ if __name__ == "__main__":
         
     train_loader, test_loader = get_otb_dataloaders(
         otb_root_dir=OTB_ROOT_DIR, 
-        split_ratio=1
+        split_ratio=0.9
     )
 
     try:

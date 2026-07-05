@@ -74,7 +74,6 @@ def supervised_iteration(model, initial_frame, initial_gt, mse_loss, device):
     init_optimizer.step()
 
 def train_offline_ddpg(model, train_loader, device, total_iterations=50000, checkpoint_iterations=5000, batch_size=64):
-
     # create target networks
     target_model = copy.deepcopy(model).to(device)
 
@@ -90,12 +89,17 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     model.critic_feature_extractor.eval()
     
     # Paper LRs: Actor 1e-6, Critic 1e-5
-    actor_params = list(model.actor.parameters())
-    actor_optimizer = optim.Adam(actor_params, lr=1e-6)
+    actor_params = [
+        {'params': model.actor.parameters(), 'lr': 1e-6},
+        {'params': list(model.actor_feature_extractor.children())[-1].parameters(), 'lr': 1e-7}
+    ]
+    actor_optimizer = optim.Adam(actor_params)
 
-    critic_params = list(model.c_fc1.parameters()) + \
-                    list(model.c_fc2.parameters())
-    critic_optimizer = optim.Adam(critic_params, lr=1e-5)
+    critic_params = [
+        {'params': list(model.c_fc1.parameters()) + list(model.c_fc2.parameters()), 'lr': 1e-5},
+        {'params': list(model.critic_feature_extractor.children())[-1].parameters(), 'lr': 1e-6}
+    ]
+    critic_optimizer = optim.Adam(critic_params)
     
     mse_loss = nn.MSELoss()
 
@@ -158,11 +162,8 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
                     
                 iou = utils.calculate_iou(next_bbox, ground_truth)
 
-                # # to avoid polluting the buffer
-                # if iou < 0.3:
-                #     continue
-
                 reward = 1.0 if iou > 0.7 else -1.0
+                # reward = (iou * 2.0) - 1.0 new reward structure
                 reward_tensor = torch.tensor([[reward]], dtype=torch.float32, device=device)
                 
                 # 4. store transition (states are stored not state features)
@@ -171,7 +172,7 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
 
             # sample a random mini-batch
             if len(replay_buffer) >= batch_size:
-                for _ in range(25):
+                for _ in range(10):
                     b_state, b_action, b_reward, b_next_state = replay_buffer.sample(batch_size)
 
                     # critic loss = 1/n sum(r + gamma*Q'(s', mu'(s'|theta^mu') | theta^Q') - Q(s, a | theta^Q))**2

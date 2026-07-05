@@ -299,30 +299,24 @@ def online_tracking(model, frames, ground_truths, device):
         
         
         viz_frame = np.ascontiguousarray(current_frame)
-        
-        
         if viz_frame.shape[2] == 3:
             viz_frame = cv2.cvtColor(viz_frame, cv2.COLOR_RGB2BGR)
-
         
         gt_xmin, gt_ymin = int(current_ground_truth[0] - current_ground_truth[2] / 2), int(current_ground_truth[1] - current_ground_truth[3] / 2)
         gt_xmax, gt_ymax = int(current_ground_truth[0] + current_ground_truth[2] / 2), int(current_ground_truth[1] + current_ground_truth[3] / 2)
         cv2.rectangle(viz_frame, (gt_xmin, gt_ymin), (gt_xmax, gt_ymax), (0, 255, 0), 2)
-        cv2.putText(viz_frame, 'GT', (gt_xmin, gt_ymin - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(viz_frame, 'grtr', (gt_xmin, gt_ymin - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
         
         pred_xmin, pred_ymin = int(current_bbox[0] - current_bbox[2] / 2), int(current_bbox[1] - current_bbox[3] / 2)
         pred_xmax, pred_ymax = int(current_bbox[0] + current_bbox[2] / 2), int(current_bbox[1] + current_bbox[3] / 2)
         cv2.rectangle(viz_frame, (pred_xmin, pred_ymin), (pred_xmax, pred_ymax), (0, 0, 255), 2)
-        cv2.putText(viz_frame, 'Pred', (pred_xmin, pred_ymin - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        cv2.putText(viz_frame, 'pred', (pred_xmin, pred_ymin - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-        
-        cv2.imshow('Actor-Critic Tracker', viz_frame)
-
+        cv2.imshow('actor-critic tracker', viz_frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("Tracking interrupted by user.")
             break
 
-    
     cv2.destroyAllWindows()
