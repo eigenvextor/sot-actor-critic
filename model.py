@@ -37,7 +37,8 @@ class ActorCriticTracker(nn.Module):
             nn.Linear(self.feature_dim, 512),
             nn.LayerNorm(512),
             nn.ReLU(),
-            nn.Linear(512, 4),
+            # nn.Linear(512, 4),
+            nn.Linear(512, 3),
             nn.Tanh()
         )
 
@@ -49,7 +50,8 @@ class ActorCriticTracker(nn.Module):
         )
 
         self.c_fc2 = nn.Sequential(
-            nn.Linear(512+4, 1)
+            # nn.Linear(512+4, 1)
+            nn.Linear(512+3, 1)
         )
 
 
@@ -62,7 +64,8 @@ class ActorCriticTracker(nn.Module):
     def get_action(self, state_features):
         action = self.actor(state_features)
         # have to multiply with another tensor so that computational graph doesnt break
-        scale_factors = torch.tensor([1.0, 1.0, 0.05, 0.05], device=self.device)
+        # scale_factors = torch.tensor([1.0, 1.0, 0.05, 0.05], device=self.device)
+        scale_factors = torch.tensor([1.0, 1.0, 0.05], device=self.device)
         return action * scale_factors
     
     def get_q_value_offline(self, state_features, action):

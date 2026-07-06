@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import cv2
 import torch
@@ -18,11 +19,15 @@ if __name__ == "__main__":
     
     print(f"executing on device: {device}")
 
-    OTB_ROOT_DIR = "OTB2015"  
-    CHECKPOINT = "500000"
+    OTB_ROOT_DIR = "OTB2015"
+    CHECKPOINT_DIR = input("which directory: ")  
+    CHECKPOINT = input("which checkpoint: ")
 
     print(f"loading ACT model: {CHECKPOINT}")
-    model = load_checkpoint(CHECKPOINT, device)
+    model = load_checkpoint(CHECKPOINT_DIR, CHECKPOINT, device)
+
+    if not model:
+        sys.exit(0)
 
     video_seq = input("give input video seq name: ")
 

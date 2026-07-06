@@ -70,31 +70,29 @@ def get_state_patch(frame, bbox, target_size=107, device='cpu'):
 
 def apply_action(bbox, action_tensor):
     if isinstance(action_tensor, torch.Tensor):
-        dx, dy, dw, dh = action_tensor.squeeze().cpu().detach().numpy().tolist()
+        # dx, dy, dw, dh = action_tensor.squeeze().cpu().detach().numpy().tolist()
+        dx, dy, ds = action_tensor.squeeze().cpu().detach().numpy().tolist()
     else:
-        dx, dy, dw, dh = action_tensor
+        # dx, dy, dw, dh = action_tensor
+        dx, dy, ds = action_tensor
 
     x, y, w, h = bbox
     
     # updates
     new_x = x + dx * w
     new_y = y + dy * h
-    new_w = w + dw * w
-    new_h = h + dh * h
+    new_w = w + ds * w
+    new_h = h + ds * h
     
     return [new_x, new_y, new_w, new_h]
 
-def apply_action_test(bbox, action_tensor, first_box):
-    """
-    updates the bounding box based on the actor's continuous action
-    bbox: [x_center, y_center, width, height]
-    action_tensor: pyTorch tensor of shape [1, 4] containing [dx, dy, dw, dh]
-    """
-    
+def apply_action_test(bbox, action_tensor, first_box):    
     if isinstance(action_tensor, torch.Tensor):
-        dx, dy, dw, dh = action_tensor.squeeze().cpu().detach().numpy().tolist()
+        # dx, dy, dw, dh = action_tensor.squeeze().cpu().detach().numpy().tolist()
+        dx, dy, ds = action_tensor.squeeze().cpu().detach().numpy().tolist()
     else:
-        dx, dy, dw, dh = action_tensor
+        # dx, dy, dw, dh = action_tensor
+        dx, dy, ds = action_tensor
 
     x, y, w, h = bbox
     _, _, w0, h0 = first_box
@@ -102,11 +100,10 @@ def apply_action_test(bbox, action_tensor, first_box):
     # updates
     new_x = x + dx * w
     new_y = y + dy * h
-    new_w = w * (1 + dw)
-    new_h = h * (1 + dh)
-    new_w = max(0.99*w0, min(1.01*w0, w * (1 + dw)))
-    new_h = max(0.99*h0, min(1.01*h0, h * (1 + dh)))
-        
+    # new_w = max(0.99*w0, min(1.01*w0, w * (1 + dw)))
+    # new_h = max(0.99*h0, min(1.01*h0, h * (1 + dh)))
+    new_w = max(0.99*w0, min(1.01*w0, w * (1 + ds)))
+    new_h = max(0.99*h0, min(1.01*h0, h * (1 + ds))) 
     
     return [new_x, new_y, new_w, new_h]
 
@@ -114,20 +111,25 @@ def get_expert_action(current_bbox, gt_bbox, device, clipped=False):
     x_c, y_c, w_c, h_c = current_bbox
     x_gt, y_gt, w_gt, h_gt = gt_bbox
     
+    wh_c = (w_c + h_c)/2
+
     # eq1
     dx = (x_gt - x_c) / w_c
     dy = (y_gt - y_c) / h_c
-    dw = (w_gt - w_c) / w_c
-    dh = (h_gt - h_c) / h_c
-
+    # dw = (w_gt - w_c) / w_c
+    # dh = (h_gt - h_c) / h_c
+    ds = (w_gt - w_c) / wh_c
+    
     # ground truth action shouldn't be clipped. its ground truth, duh
     if clipped:
         dx = max(-1, min(1, dx))
         dy = max(-1, min(1, dy))
-        dw = max(-0.05, min(0.05, dw))
-        dh = max(-0.05, min(0.05, dh))
+        # dw = max(-0.05, min(0.05, dw))
+        # dh = max(-0.05, min(0.05, dh))
+        ds = max(-0.05, min(0.05, ds))
 
-    action = torch.tensor([[dx, dy, dw, dh]], dtype=torch.float32, device=device)
+    # action = torch.tensor([[dx, dy, dw, dh]], dtype=torch.float32, device=device)
+    action = torch.tensor([[dx, dy, ds]], dtype=torch.float32, device=device)
     
     return action
 
@@ -143,11 +145,12 @@ def generate_actor_samples(gt_bbox, num_samples=64, iou_threshold=0.7):
         # generate samples
         dx = np.random.normal(0, x_std)
         dy = np.random.normal(0, y_std)
-        dw = np.random.normal(0, scale_std)
-        dh = np.random.normal(0, scale_std)
+        # dw = np.random.normal(0, scale_std)
+        # dh = np.random.normal(0, scale_std)
+        ds = np.random.normal(0, scale_std)
         
         # apply the translations directly, and the scale as a relative multiplier
-        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + ds), h * (1 + ds)]
         
         # enforce the strict IoU threshold from the paper
         if calculate_iou(noisy_bbox, gt_bbox) > iou_threshold:
@@ -167,11 +170,12 @@ def generate_critic_samples(gt_bbox, num_pos_samples=50, num_neg_samples=100, io
         # generate samples
         dx = np.random.normal(0, pos_x_std)
         dy = np.random.normal(0, pos_y_std)
-        dw = np.random.normal(0, pos_scale_std)
-        dh = np.random.normal(0, pos_scale_std)
+        # dw = np.random.normal(0, pos_scale_std)
+        # dh = np.random.normal(0, pos_scale_std)
+        ds = np.random.normal(0, pos_scale_std)
         
         # apply the translations directly, and the scale as a relative multiplier
-        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + ds), h * (1 + ds)]
         
         # enforce the strict IoU threshold from the paper
         if calculate_iou(noisy_bbox, gt_bbox) > iou_threshold:
@@ -181,11 +185,12 @@ def generate_critic_samples(gt_bbox, num_pos_samples=50, num_neg_samples=100, io
         # generate samples
         dx = np.random.normal(0, neg_x_std)
         dy = np.random.normal(0, neg_y_std)
-        dw = np.random.normal(0, neg_scale_std)
-        dh = np.random.normal(0, neg_scale_std)
+        # dw = np.random.normal(0, neg_scale_std)
+        # dh = np.random.normal(0, neg_scale_std)
+        ds = np.random.normal(0, neg_scale_std)
         
         # apply the translations directly, and the scale as a relative multiplier
-        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + ds), h * (1 + ds)]
         
         # enforce the strict IoU threshold from the paper
         if calculate_iou(noisy_bbox, gt_bbox) < 1 - iou_threshold:
@@ -194,10 +199,6 @@ def generate_critic_samples(gt_bbox, num_pos_samples=50, num_neg_samples=100, io
     return pos_samples, neg_samples
 
 def calculate_iou(box_a, box_b):
-    """
-    Calculates the Intersection over Union (IoU) between two boxes.
-    Boxes are expected in [x_center, y_center, width, height] format.
-    """
     # convert [x_center, y_center, w, h] to [x_min, y_min, x_max, y_max]
     # (bottom left, top right)
     def get_corners(b):

@@ -15,9 +15,10 @@ if __name__ == "__main__":
     print(f"executing on device: {device}")
 
     OTB_ROOT_DIR = "OTB2015"  
-    TOTAL_ITERATIONS = 500000
-    CHECKPOINT_ITERATIONS = 25000
+    TOTAL_ITERATIONS = int(input("total iterations: "))
+    CHECKPOINT_ITERATIONS = int(input("save checkpoint after how many iterations: "))
     BATCH_SIZE = 64
+    TRAINING_NAME = input("give a name to save checkpoints/ metrics: ")
 
     print("initializing ACT model")
     model = ActorCriticTracker().to(device)
@@ -36,6 +37,7 @@ if __name__ == "__main__":
             model=model,
             train_loader=train_loader,
             device=device,
+            training_name=TRAINING_NAME,
             total_iterations=TOTAL_ITERATIONS,
             checkpoint_iterations=CHECKPOINT_ITERATIONS,
             batch_size=BATCH_SIZE

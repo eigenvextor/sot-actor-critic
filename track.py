@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from collections import deque
 import cv2
@@ -31,8 +32,11 @@ def get_groundtruth(filepath):
 
     return boxes
 
-def load_checkpoint(model_checkpoint, device):
-    path = f"checkpoints/act_tracker_iter_{model_checkpoint}.pth"
+def load_checkpoint(training_dir, model_checkpoint, device):
+    path = f"checkpoints/{training_dir}/act_tracker_iter_{model_checkpoint}.pth"
+    if not os.path.exists(path):
+        print("checkpoint doesnt exist!")
+        return None
     model = ActorCriticTracker()
     checkpoint = torch.load(path, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint["model"])
@@ -141,9 +145,10 @@ def initialize_critic(model, initial_frame, initial_gt, num_pos_samples=500, num
         if not (i+1) % 10:
             print(f"iteration {i+1}: {avg_loss:.6f}")
 
-def redetection_strategy(model, frame, bbox, num_samples=256, device="cpu"):
+def redetection_strategy(model, initial_gt, frame, bbox, num_samples=256, device="cpu"):
     samples = []
-    x, y, w, h = bbox
+    x, y, _, _ = bbox
+    _, _, w, h = initial_gt
     
     x_std = 0.3
     y_std = 0.3
@@ -153,11 +158,12 @@ def redetection_strategy(model, frame, bbox, num_samples=256, device="cpu"):
         # generate samples
         dx = np.random.normal(0, x_std)
         dy = np.random.normal(0, y_std)
-        dw = np.random.normal(0, scale_std)
-        dh = np.random.normal(0, scale_std)
+        ds = np.random.normal(0, scale_std)
+        # dw = np.random.normal(0, scale_std)
+        # dh = np.random.normal(0, scale_std)
         
         # apply the translations directly, and the scale as a relative multiplier
-        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + dw), h * (1 + dh)]
+        noisy_bbox = [x + dx * w, y + dy * h, w * (1 + ds), h * (1 + ds)]
         if noisy_bbox[2] > 0 and noisy_bbox[3] > 0:
             samples.append(noisy_bbox)
 
@@ -247,6 +253,7 @@ def online_tracking(model, frames, ground_truths, device):
     # actor initialization
     initial_frame = frames[0]
     initial_gt = ground_truths[0]
+    print(initial_gt)
     initialize_actor(model, initial_frame, initial_gt, num_samples=500, num_iterations=30, 
                      learning_rate=1e-4, iou_threshold=0.7, batch_size=64, device=device)
     
@@ -262,7 +269,7 @@ def online_tracking(model, frames, ground_truths, device):
     current_bbox = initial_gt
 
     for current_frame, current_ground_truth in zip(frames[1:], ground_truths[1:]):
-        
+
         # 1. obtain state s_t
         state_tensor = utils.get_state_patch(current_frame, current_bbox, device=device)
 
@@ -272,7 +279,8 @@ def online_tracking(model, frames, ground_truths, device):
             action = model.get_action(state_features)
 
         # 3. execute action
-        next_bbox = utils.apply_action(current_bbox, action)
+        # next_bbox = utils.apply_action(current_bbox, action)
+        next_bbox = utils.apply_action_test(current_bbox, action, initial_gt)
         next_state_tensor = utils.get_state_patch(current_frame, next_bbox, device=device)
 
         # 4. get confidence value q-value
@@ -287,7 +295,7 @@ def online_tracking(model, frames, ground_truths, device):
         else:
             print(f"confidence value: {confidence_value}. applying redetection strategy")
 
-            new_confidence_value, current_bbox = redetection_strategy(model, current_frame, current_bbox, num_samples=256, device=device)
+            new_confidence_value, current_bbox = redetection_strategy(model, initial_gt, current_frame, current_bbox, num_samples=256, device=device)
  
             if new_confidence_value < 0:
                 print(f"redetection strategy applied and still the new confidence score is only: {new_confidence_value}")
@@ -297,6 +305,8 @@ def online_tracking(model, frames, ground_truths, device):
                 online_critic_update(model, buffer, num_pos_samples=50, num_neg_samples=100, num_iterations=30, 
                             learning_rate=1e-5, iou_threshold=0.7, batch_size=128, device=device)
         
+        print(current_ground_truth)
+        print(current_bbox)
         
         viz_frame = np.ascontiguousarray(current_frame)
         if viz_frame.shape[2] == 3:
@@ -316,7 +326,7 @@ def online_tracking(model, frames, ground_truths, device):
         cv2.imshow('actor-critic tracker', viz_frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("Tracking interrupted by user.")
+            print("tracking interrupted by user.")
             break
 
     cv2.destroyAllWindows()

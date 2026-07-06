@@ -73,7 +73,7 @@ def supervised_iteration(model, initial_frame, initial_gt, mse_loss, device):
     torch.nn.utils.clip_grad_norm_(actor_params, max_norm=4.0)
     init_optimizer.step()
 
-def train_offline_ddpg(model, train_loader, device, total_iterations=50000, checkpoint_iterations=5000, batch_size=64):
+def train_offline_ddpg(model, train_loader, device, training_name, total_iterations=50000, checkpoint_iterations=10000, batch_size=64):
     # create target networks
     target_model = copy.deepcopy(model).to(device)
 
@@ -89,17 +89,23 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     model.critic_feature_extractor.eval()
     
     # Paper LRs: Actor 1e-6, Critic 1e-5
-    actor_params = [
+    actor_optim_params = [
         {'params': model.actor.parameters(), 'lr': 1e-6},
         {'params': list(model.actor_feature_extractor.children())[-1].parameters(), 'lr': 1e-7}
     ]
-    actor_optimizer = optim.Adam(actor_params)
+    actor_optimizer = optim.Adam(actor_optim_params)
+    actor_params = []
+    for group in actor_optimizer.param_groups:
+        actor_params.extend(group['params'])
 
-    critic_params = [
+    critic_optim_params = [
         {'params': list(model.c_fc1.parameters()) + list(model.c_fc2.parameters()), 'lr': 1e-5},
         {'params': list(model.critic_feature_extractor.children())[-1].parameters(), 'lr': 1e-6}
     ]
-    critic_optimizer = optim.Adam(critic_params)
+    critic_optimizer = optim.Adam(critic_optim_params)
+    critic_params = []
+    for group in critic_optimizer.param_groups:
+        critic_params.extend(group['params'])
     
     mse_loss = nn.MSELoss()
 
@@ -108,10 +114,10 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
     epsilon = 0.7
     current_iteration = 0
 
-    os.makedirs('checkpoints', exist_ok=True)
+    os.makedirs(f'checkpoints/{training_name}', exist_ok=True)
     os.makedirs('metrics', exist_ok=True)
     
-    log_file = open('metrics/training_metrics.csv', mode='w', newline='')
+    log_file = open(f'metrics/{training_name}_metrics.csv', mode='w', newline='')
     log_writer = csv.writer(log_file)
     log_writer.writerow(['iteration', 'actor_loss', 'critic_loss', 'epsilon'])
 
@@ -127,9 +133,9 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
                 break
             
             frames = [f.squeeze(0).numpy() for f in frames_list]
-            # 30 frames chosen always
-            # max_T = min(len(frames) - 1, random.randint(20, 40))
-            max_T = min(len(frames) - 1, 30)
+
+            max_T = min(len(frames) - 1, random.randint(20, 40))
+            # max_T = min(len(frames) - 1, 30) # 30 frames chosen always
             
             if max_T < 2:
                 continue
@@ -162,8 +168,8 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
                     
                 iou = utils.calculate_iou(next_bbox, ground_truth)
 
-                reward = 1.0 if iou > 0.7 else -1.0
-                # reward = (iou * 2.0) - 1.0 new reward structure
+                # reward = 1.0 if iou > 0.7 else -1.0
+                reward = (iou * 2.0) - 1.0 # new reward structure
                 reward_tensor = torch.tensor([[reward]], dtype=torch.float32, device=device)
                 
                 # 4. store transition (states are stored not state features)
@@ -256,7 +262,7 @@ def train_offline_ddpg(model, train_loader, device, total_iterations=50000, chec
                         epsilon = max(0.05, epsilon * 0.975)
 
                     if current_iteration % checkpoint_iterations == 0: 
-                        checkpoint_path = f"checkpoints/act_tracker_iter_{current_iteration}.pth"
+                        checkpoint_path = f"checkpoints/{training_name}/act_tracker_iter_{current_iteration}.pth"
                         torch.save({
                             'iteration': current_iteration,
                             'model': model.state_dict(),
